@@ -19,14 +19,14 @@ def main():
     <head></head>
     <body>
     <script type="text/javascript">
-    """+javascript_code+"""
+    """ + javascript_code + """
     </script>
     
     <div id="resultDiv"></div>
     
     <script type="text/javascript">
     function run(){
-    var result= DesyncedStringToObject(\""""+sample_script+"""\");
+    var result= DesyncedStringToObject(\"""" + sample_script + """\");
     document.getElementById("resultDiv").innerHTML = JSON.stringify(result, null, 4);;
     }
     run();
@@ -35,13 +35,15 @@ def main():
     </html>
     """
 
-
     html = HTML(html=doc)
 
     print("call to decode")
-    val = html.render( reload=False,keep_page=True)
-    print(val)
-    print(html)
+    #html.render(reload=False, keep_page=True)
+    html.render()
+    div = html.find('div', first=True)
+    print(div.text)
+    #TODO why is the div text not correct, although in browser everything works fine??
+    #print(html.html)
 
 
 if __name__ == "__main__":
