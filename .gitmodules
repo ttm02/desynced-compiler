@@ -1,0 +1,3 @@
+[submodule "DesyncedJavaScriptUtils"]
+	path = DesyncedJavaScriptUtils
+	url = https://github.com/StageGames/DesyncedJavaScriptUtils.git
