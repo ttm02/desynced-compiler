@@ -92,8 +92,8 @@ def decode_set_number(inst):
     return var + " = " + num + ", " + signal
 
 
-def decode_add(inst):
-    assert inst['op'] == 'add'
+def decode_arith(inst):
+    assert inst['op'] == 'add' or inst['op'] == 'sub' or inst['op'] == 'mul' or inst['op'] == 'div'
     assert '0' in inst
     assert '1' in inst
     assert '2' in inst
@@ -101,7 +101,15 @@ def decode_add(inst):
     a = get_number(inst['0'])
     b = get_number(inst['1'])
 
-    return var + " = " + a + " + " + b
+    operator = "+"
+    if inst['op'] == 'sub':
+        operator = "-"
+    if inst['op'] == 'mul':
+        operator = "*"
+    if inst['op'] == 'div':
+        operator = "/"
+
+    return var + " = " + a + " " + operator + " " + b
 
 
 def main():
@@ -117,18 +125,21 @@ def main():
     name = as_dict['name']
 
     code_str = get_function_name(as_dict) + "\n"
+    nesting_lvl = 1
     for key, instr in as_dict.items():
         if key.isdigit():
-            params = [value for key, value in instr.items() if key.isdigit()]
+            for i in range(nesting_lvl):
+                code_str += '\t'
             if instr['op'] == 'set_number':
-                pass
-            elif instr['op'] == 'add':
-                pass
+                code_str += decode_set_number(instr)
+            elif instr['op'] in ('add', 'sub', 'mul', 'div'):
+                code_str += decode_arith(instr)
             else:
-                print(instr['op'])
-            # print(params)
+                code_str += "UNKNOWN_OPCODE"
 
-    # python like function define
+            code_str += '\n'
+
+    print(code_str)
 
 
 if __name__ == "__main__":
