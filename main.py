@@ -54,20 +54,54 @@ def get_function_name(code_dict):
     return result_str
 
 
+def get_signal(param):
+    if param == False:
+        return "None"
+    if isinstance(param, dict):
+        if 'id' in param:
+            return param['id']
+        else:
+            return "None"
+    if isinstance(param, int):
+        return "P" + str(param)
+    return param
+
+
+def get_number(param):
+    if param == False:
+        return "None"
+    if isinstance(param, dict):
+        if 'num' in param:
+            return str(param['num'])
+        else:
+            return "None"
+    if isinstance(param, int):
+        return "P" + str(param)
+    return param
+
+
 def decode_set_number(inst):
     assert inst['op'] == 'set_number'
     assert '0' in inst
     assert '1' in inst
     assert '2' in inst
     var = inst['2']
-    num = str(inst['1']['num'])
-    signal = inst['0']
-    if not signal or 'id' not in signal:
-        signal = "None"
-    else:
-        signal = signal['id']
+    num = str(get_number(inst['1']))
+    signal = get_signal(inst['0'])
 
     return var + " = " + num + ", " + signal
+
+
+def decode_add(inst):
+    assert inst['op'] == 'add'
+    assert '0' in inst
+    assert '1' in inst
+    assert '2' in inst
+    var = inst['2']
+    a = get_number(inst['0'])
+    b = get_number(inst['1'])
+
+    return var + " = " + a + " + " + b
 
 
 def main():
@@ -87,7 +121,11 @@ def main():
         if key.isdigit():
             params = [value for key, value in instr.items() if key.isdigit()]
             if instr['op'] == 'set_number':
-                print(decode_set_number(instr))
+                pass
+            elif instr['op'] == 'add':
+                pass
+            else:
+                print(instr['op'])
             # print(params)
 
     # python like function define
