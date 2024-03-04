@@ -1,7 +1,12 @@
 import js2py
 import quickjs
+import json
 
 from requests_html import HTML
+
+from selenium import webdriver
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.by import By
 
 # needed for the converted script
 import numpy
@@ -27,7 +32,7 @@ def main():
     <script type="text/javascript">
     function run(){
     var result= DesyncedStringToObject(\"""" + sample_script + """\");
-    document.getElementById("resultDiv").innerHTML = JSON.stringify(result, null, 4);;
+    document.getElementById("resultDiv").innerHTML = JSON.stringify(result, null, 4);
     }
     run();
     </script>    
@@ -35,15 +40,17 @@ def main():
     </html>
     """
 
-    html = HTML(html=doc)
 
-    print("call to decode")
-    #html.render(reload=False, keep_page=True)
-    html.render()
-    div = html.find('div', first=True)
-    print(div.text)
-    #TODO why is the div text not correct, although in browser everything works fine??
-    #print(html.html)
+    with open("test.html", "w") as outfile:
+        outfile.write(doc)
+
+    driver = webdriver.Firefox()
+    driver.get("file:///home/tim/desynced-assembly/test.html")  # TODO path
+    elem = driver.find_element(By.ID, "resultDiv")
+    json_str = elem.text
+    driver.close()
+
+    code = json.loads(json_str)
 
 
 if __name__ == "__main__":
