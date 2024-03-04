@@ -16,22 +16,28 @@ as_dict_complex = {
     '5': {'0': {'num': 1}, '1': {'num': 1}, '2': 'D', 'cmt': 'Current inv slot', 'op': 'set_number'},
     '6': {'0': 1, '1': 'E', '2': 13, 'op': 'for_recipe_ingredients'},
     '7': {'0': {'num': 1}, '1': {'num': 1}, '2': 'F', 'cmt': 'Local loop counter', 'op': 'set_number'},
-    '8': {'0': 'E', '1': 'D', 'op': 'lock_slots'}, '9': {'0': 'D', '1': {'num': 1}, '2': 'D', 'op': 'add'},
+    '8': {'0': 'E', '1': 'D', 'op': 'lock_slots'},
+    '9': {'0': 'D', '1': {'num': 1}, '2': 'D', 'op': 'add'},
     '10': {'0': 'F', '1': {'num': 1}, '2': 'F', 'op': 'add'},
     '11': {'0': False, '1': 9, '2': 'F', '3': 'C', 'cmt': 'For i in range(ingredients_per_slot)',
-           'op': 'check_number', 'next': 9}, '12': {'0': 1, '1': 'D', 'op': 'lock_slots'},
+           'op': 'check_number', 'next': 9},
+    '12': {'0': 1, '1': 'D', 'op': 'lock_slots'},
     '13': {'0': 'D', '1': {'num': 1}, '2': 'D', 'op': 'add'},
     '14': {'1': 13, '2': 'D', '3': 'B', 'cmt': 'while current_slot <= Num_Slots', 'op': 'check_number', 'next': 13},
     '15': {'0': {'id': 'v_star', 'num': 1}, 'cmt': 'End Setup', 'op': 'jump', 'next': False},
     '16': {'0': {'id': 'v_star', 'num': 1}, 'op': 'label', 'cmt': 'Produce'},
     '17': {'0': 1, '1': 'A', '2': 24, 'ny': 1095.4998741149902, 'op': 'for_recipe_ingredients', 'nx': 0},
-    '18': {'0': 'A', '1': 'B', 'op': 'get_max_stack'}, '19': {'0': 'B', '1': 'C', '2': 'D', 'op': 'mul'},
+    '18': {'0': 'A', '1': 'B', 'op': 'get_max_stack'},
+    '19': {'0': 'B', '1': 'C', '2': 'D', 'op': 'mul'},
     '20': {'0': 'D', 'op': 'request_item'},
     '21': {'0': {'num': 1}, '1': {'id': 'v_building'}, '2': False, '3': False, '4': 'E', '5': False,
-           'op': 'for_entities_in_range'}, '22': {'0': 'E', '1': 'B', 'op': 'order_transfer', 'next': False},
+           'op': 'for_entities_in_range'},
+    '22': {'0': 'E', '1': 'B', 'op': 'order_transfer', 'next': False},
     '23': {'0': 1, '1': 'G', '2': False, 'cmt': 'Wait if we have at least one stack produced', 'op': 'count_item',
-           'c': 1}, '24': {'0': 1, '1': 'H', 'op': 'get_max_stack'},
-    '25': {'1': 28, '2': 'G', '3': 'H', 'op': 'check_number'}, '26': {'0': {'num': 100}, 'op': 'wait'},
+           'c': 1},
+    '24': {'0': 1, '1': 'H', 'op': 'get_max_stack'},
+    '25': {'1': 28, '2': 'G', '3': 'H', 'op': 'check_number'},
+    '26': {'0': {'num': 100}, 'op': 'wait'},
     '27': {'0': {'num': 1, 'id': 'v_star'}, 'ny': 1482.658290863037, 'op': 'jump', 'nx': 1627.3013458251953},
     'pnames': ['Good Produced'],
     'desc': 'Factory Block Manager. TODO: error report if not enough inventory slots TOTO better wait logic',
@@ -67,6 +73,7 @@ def get_signal(param):
         return "P" + str(param)
     return param
 
+
 # number part of value
 def get_number(param):
     if param == False:
@@ -81,6 +88,7 @@ def get_number(param):
         return "P" + str(param)
     # variable
     return param
+
 
 # both parts of value
 def get_both(param):
@@ -99,10 +107,32 @@ def get_both(param):
         result_str += "]"
         return result_str
     if isinstance(param, int):
-        #parameter
+        # parameter
         return "P" + str(param)
     # variable
     return param
+
+
+def decode_lock_slots(inst):
+    assert inst['op'] == 'lock_slots'
+    assert '0' in inst
+    assert '1' in inst
+
+    item = get_signal(inst['0'])
+    slot = get_number(inst['1'])
+    if slot == 'None':
+        slot == "ALL"
+
+    return "lock_slots(%s, slot=%s)" % ( item,slot)
+
+def decode_get_max_stack(inst):
+    assert inst['op'] == 'get_max_stack'
+    assert '0' in inst
+    assert '1' in inst
+
+    item = get_signal(inst['0'])
+    stack = get_both(inst['1'])
+    return stack + " = get_max_stack(" +item +")"
 
 def decode_set_number(inst):
     assert inst['op'] == 'set_number'
@@ -113,7 +143,7 @@ def decode_set_number(inst):
     num = str(get_number(inst['1']))
     signal = get_signal(inst['0'])
 
-    return var + " = " + num + ", " + signal
+    return var + " = [" + num + ", " + signal + "]"
 
 
 def decode_arith(inst):
@@ -134,6 +164,22 @@ def decode_arith(inst):
         operator = "/"
 
     return var + " = " + a + " " + operator + " " + b
+
+
+def decode_count_slots(inst):
+    assert inst['op'] == 'count_slots'
+    assert '0' in inst
+    assert '1' in inst
+    assert 'c' in inst
+
+    var = get_both(inst['0'])
+    type_id = inst['c']
+    type_str = None
+    if type_id == 2:
+        type_str = "STORAGE"
+    assert type_str is not None  # others are currently not implemented
+
+    return var + " = count_slots(" + type_str + ")"
 
 
 def decode_for_recipe(inst):
@@ -166,7 +212,7 @@ def main():
 
     for key, instr in as_dict.items():
         if key.isdigit():
-            if len(next_loop_end) >0 and int(key) == next_loop_end[0]:
+            if len(next_loop_end) > 0 and int(key) == next_loop_end[0]:
                 nesting_lvl -= 1
                 assert nesting_lvl > 0
                 next_loop_end = next_loop_end[1:]
@@ -182,6 +228,12 @@ def main():
                 st, tgt = decode_for_recipe(instr)
                 next_loop_end.insert(0, tgt - 1)
                 code_str += st
+            elif instr['op'] == 'count_slots':
+                code_str += decode_count_slots(instr)
+            elif instr['op'] == 'lock_slots':
+                code_str += decode_lock_slots(instr)
+            elif instr['op'] == 'get_max_stack':
+                code_str += decode_get_max_stack(instr)
             else:
                 code_str += "UNKNOWN_OPCODE: " + instr['op']
             # print(instr)
