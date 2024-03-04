@@ -123,7 +123,8 @@ def decode_lock_slots(inst):
     if slot == 'None':
         slot == "ALL"
 
-    return "lock_slots(%s, slot=%s)" % ( item,slot)
+    return "lock_slots(%s, slot=%s)" % (item, slot)
+
 
 def decode_get_max_stack(inst):
     assert inst['op'] == 'get_max_stack'
@@ -132,13 +133,38 @@ def decode_get_max_stack(inst):
 
     item = get_signal(inst['0'])
     stack = get_both(inst['1'])
-    return stack + " = get_max_stack(" +item +")"
+    return stack + " = get_max_stack(" + item + ")"
+
+def decode_order_transfer(inst):
+    assert inst['op'] == 'order_transfer'
+    assert '0' in inst
+    assert '1' in inst
+
+    target = get_both(inst['0'])
+    item = get_both(inst['1'])
+    return "order_transfer(to="+target+", item=" + item + ")"
+
+def decode_request_item(inst):
+    assert inst['op'] == 'request_item'
+    assert '0' in inst
+
+    item = get_both(inst['0'])
+    return  "request_item(" + item + ")"
+
+def decode_wait(inst):
+    assert inst['op'] == 'wait'
+    assert '0' in inst
+
+    time = get_number(inst['0'])
+    return  "wait(" + time + ")"
+
 
 def decode_set_number(inst):
     assert inst['op'] == 'set_number'
     assert '0' in inst
     assert '1' in inst
     assert '2' in inst
+
     var = get_both(inst['2'])
     num = str(get_number(inst['1']))
     signal = get_signal(inst['0'])
@@ -192,8 +218,32 @@ def decode_for_recipe(inst):
     recipe = get_signal(inst['0'])
 
     tgt = inst['2']
+    if not tgt:
+        tgt = None
 
     return "for " + var + " in recipe_ingredients(" + recipe + "): ", tgt
+
+
+
+def decode_for_entities_in_range(inst):
+    assert inst['op'] == 'for_entities_in_range'
+    assert '0' in inst
+    assert '1' in inst
+    assert '2' in inst
+    assert '3' in inst
+    assert '4' in inst
+    assert '5' in inst
+
+    range = get_number(inst['0'])
+    filter = get_signal(inst['1'])
+    assert get_both(inst['2']) == "None"
+    assert get_both(inst['3']) == "None"
+    var = get_both(inst['4'])
+    tgt = inst['5']
+    if not tgt:
+        tgt = None
+
+    return "for " + var + " in entities_in_range(" + range + ", filter=" + filter + "): ", tgt
 
 
 def main():
@@ -226,14 +276,28 @@ def main():
             elif instr['op'] == 'for_recipe_ingredients':
                 nesting_lvl += 1  # begin loop
                 st, tgt = decode_for_recipe(instr)
-                next_loop_end.insert(0, tgt - 1)
+                if tgt:
+                    next_loop_end.insert(0, tgt - 1)
+                code_str += st
+            elif instr['op'] == 'for_entities_in_range':
+                nesting_lvl += 1  # begin loop
+                st, tgt = decode_for_entities_in_range(instr)
+                if tgt:
+                    #TODO some nested loops are displayed wrong
+                    next_loop_end.insert(0, tgt - 1)
                 code_str += st
             elif instr['op'] == 'count_slots':
                 code_str += decode_count_slots(instr)
+            elif instr['op'] == 'request_item':
+                code_str += decode_request_item(instr)
+            elif instr['op'] == 'order_transfer':
+                code_str += decode_order_transfer(instr)
             elif instr['op'] == 'lock_slots':
                 code_str += decode_lock_slots(instr)
             elif instr['op'] == 'get_max_stack':
                 code_str += decode_get_max_stack(instr)
+            elif instr['op'] == 'wait':
+                code_str += decode_wait(instr)
             else:
                 code_str += "UNKNOWN_OPCODE: " + instr['op']
             # print(instr)
