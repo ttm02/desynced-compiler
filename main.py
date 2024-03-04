@@ -54,6 +54,7 @@ def get_function_name(code_dict):
     return result_str
 
 
+# signal part of value
 def get_signal(param):
     if param == False:
         return "None"
@@ -66,7 +67,7 @@ def get_signal(param):
         return "P" + str(param)
     return param
 
-
+# number part of value
 def get_number(param):
     if param == False:
         return "None"
@@ -76,16 +77,39 @@ def get_number(param):
         else:
             return "None"
     if isinstance(param, int):
+        # parameter
         return "P" + str(param)
+    # variable
     return param
 
+# both parts of value
+def get_both(param):
+    if param == False:
+        return "None"
+    if isinstance(param, dict):
+        result_str = "["
+        if 'num' in param:
+            result_str += str(param['num'])
+        else:
+            result_str += "None"
+        if 'id' in param:
+            result_str += str(param['id'])
+        else:
+            result_str += "None"
+        result_str += "]"
+        return result_str
+    if isinstance(param, int):
+        #parameter
+        return "P" + str(param)
+    # variable
+    return param
 
 def decode_set_number(inst):
     assert inst['op'] == 'set_number'
     assert '0' in inst
     assert '1' in inst
     assert '2' in inst
-    var = inst['2']
+    var = get_both(inst['2'])
     num = str(get_number(inst['1']))
     signal = get_signal(inst['0'])
 
@@ -97,7 +121,7 @@ def decode_arith(inst):
     assert '0' in inst
     assert '1' in inst
     assert '2' in inst
-    var = inst['2']
+    var = get_both(inst['2'])
     a = get_number(inst['0'])
     b = get_number(inst['1'])
 
@@ -118,7 +142,7 @@ def decode_for_recipe(inst):
     assert '1' in inst
     assert '2' in inst
 
-    var = inst['1']
+    var = get_both(inst['1'])
     recipe = get_signal(inst['0'])
 
     tgt = inst['2']
