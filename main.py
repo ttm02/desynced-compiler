@@ -44,6 +44,8 @@ as_dict_complex = {
     'desc': 'Factory Block Manager. TODO: error report if not enough inventory slots TOTO better wait logic',
     'parameters': [False], 'name': 'Factory Block Manager'}
 
+VARIABLE_PREFIX = "VAR_"
+
 
 def decode_list_literal(list_literal):
     assert isinstance(list_literal, ast.List)
@@ -73,7 +75,7 @@ def decode_list_literal(list_literal):
 
 
 def handle_assign(assign_node):
-    print(ast.dump(assign_node))
+    # print(ast.dump(assign_node))
     assert isinstance(assign_node, ast.Assign)
     assert len(assign_node.targets) == 1
     assert isinstance(assign_node.targets[0], ast.Name)
@@ -93,7 +95,6 @@ def handle_assign(assign_node):
     elif isinstance(assign_node.value, ast.BinOp):
         # Math
         op = assign_node.value.op
-        print(op)
         if isinstance(op, ast.Add):
             op = "add"
         elif isinstance(op, ast.Sub):
@@ -184,12 +185,53 @@ def main():
     as_dict['pnames'] = param_names
     as_dict['parameters'] = [False for _ in param_names]
 
+    # rename all variables to avoid conflicts with the variable names used ingame
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name):
+            node.id = VARIABLE_PREFIX + node.id
+
+    i = 0
     for node in func.body:
         if isinstance(node, ast.Assign):
             result_stmt = handle_assign(node)
-            print(result_stmt)
+            as_dict[str(i)] = result_stmt
         else:
             assert False and "Not yet Implemented"
+        i += 1
+
+    re_name_params(as_dict, param_names)
+
+    print(as_dict)
+    print(get_desynced_str_from_dict(as_dict))
+
+
+def re_name_params(as_dict, param_names):
+    param_names_with_prefix = [VARIABLE_PREFIX+p for p in param_names]
+    MAX_NUM_PARAMS = 11
+    # Rename Variables and parameters
+    variables_used = {}
+    next_available_variable = 'A'
+    for key_instr_num, stmt in as_dict.items():
+        if isinstance(stmt, dict):
+            keys_to_check = [k for k in stmt if k.isdigit()]
+            for key_arg_num in keys_to_check:
+                val = stmt[key_arg_num]
+                if isinstance(val, str):
+                    if val.startswith(VARIABLE_PREFIX):
+                        if val in param_names_with_prefix:
+                            stmt[key_arg_num] = param_names_with_prefix.index(val) +1
+                        elif val in variables_used:
+                            stmt[key_arg_num] = variables_used[val]
+                        else:
+                            # new variable
+                            variables_used[val] = next_available_variable
+                            next_available_variable = chr(ord(next_available_variable) + 1)# next char
+                            stmt[key_arg_num] = variables_used[val]
+                            assert next_available_variable != 'Z'  # too much variables
+
+
+
+
 
 
 if __name__ == "__main__":
