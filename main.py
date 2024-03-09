@@ -112,7 +112,7 @@ def handle_assign(assign_node):
             assert isinstance(left, ast.Name)
             left = left.id
 
-        right = assign_node.value.left
+        right = assign_node.value.right
         if isinstance(right, ast.List):
             right = decode_list_literal(right)
         else:
