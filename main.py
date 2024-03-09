@@ -148,10 +148,21 @@ def handle_call(call_node):
     else:
         assert False and "not Implemented yet"
 
-"""return triple Larger? smaller? equal? True: if path will be taken, false: else path"""
+
 def get_paths_from_predicate(predicate):
+    """return triple: Larger? smaller? equal? True: if path will be taken, false: else path"""
     if isinstance(predicate, ast.LtE):
         return [False, True, True]
+    if isinstance(predicate, ast.Lt):
+        return [False, True, False]
+    if isinstance(predicate, ast.Eq):
+        return [False, False, True]
+    if isinstance(predicate, ast.NotEq):
+        return [True, True, False]
+    if isinstance(predicate, ast.GtE):
+        return [True, False, True]
+    if isinstance(predicate, ast.Gt):
+        return [True, False, False]
     else:
         assert False and "Not implemented yet"
 
@@ -199,7 +210,7 @@ def handle_if(if_node, incoming_instrs, result_list):
     # else path
     else_end = code_gen(if_node.orelse, prev_instrs, result_list)
 
-    return if_end+else_end
+    return if_end + else_end
 
 
 """
@@ -241,7 +252,7 @@ def add_to_result_list(prev_instrs, result_list, result_stmt):
     new_elem_pos = len(result_list)
     result_list.append(result_stmt)
     for inst, key in prev_instrs:
-        inst[key] = new_elem_pos+1
+        inst[key] = new_elem_pos + 1
 
 
 def main():
