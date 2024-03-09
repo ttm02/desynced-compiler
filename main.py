@@ -44,6 +44,13 @@ as_dict_complex = {
     'desc': 'Factory Block Manager. TODO: error report if not enough inventory slots TOTO better wait logic',
     'parameters': [False], 'name': 'Factory Block Manager'}
 
+dict_if_sample = {'0': {'0': False, '1': {'num': 1}, '2': 'A', 'op': 'set_number'},
+                  '1': {'0': 4, '1': 5, '2': 'A', '3': {'num': 1}, 'op': 'check_number'},
+                  '2': {'0': False, 'txt': 'EQ', 'op': 'notify', 'next': False},
+                  '3': {'0': False, 'txt': 'LARGER', 'op': 'notify', 'next': False},
+                  '4': {'0': False, 'txt': 'LESS', 'op': 'notify'}, 'desc': 'Sample Function',
+                  'parameters': [False, False], 'pnames': ['summand', 'result'], 'name': 'test_if'}
+
 VARIABLE_PREFIX = "VAR_"
 
 
@@ -133,12 +140,6 @@ def handle_assign(assign_node):
 
 
 def main():
-    complex_sample_script = "DSC1Dh1Y0A1I1Bt2tR1NLvhY223I0u2Nomhi0ISJb52owTeG3JX3GP1hRRTO2gGSrG4J5Meb451rQ42vwdps1LljmK2XeBVa0jZytE4Ayl6B2C2cSK1Jz0582BbFd64SvrVO0bZMBJ2ilOVH1mSDfR2emb320CGaKz4PvDv13GnIsr3Jc6tC1FU4Px0nj01y24v1df0ral4M0dWVhV03jINe2T8hQf0aUrNC3nowiy45nVVS4d1Yqc08BeeK4WAW0d3CIfM72tn5Ym2tdv3h0zlPaJ2doZp63qa4uT2XWEmY1OJKEO28It8J2ke2AV03k3VN0gGAJY3pn4tI01gWee4Ojo5B41yXNs3JZ8Ts265QJ00Zwclq4Z0o4549ZUgN4ZcojH2IrjEk0ElTja2l3wZU02PAlW1xzkpV2mcvTu38oepn2SfHCj4crFIV27ilfc0O2Luc4Ixvyr1hIgXC1XvWbf3Jb0RK3GhNFR0NAp6j25gnAj1X1MKZ0YMGAY4XxYkU2IWvBH31izTV4AZK6f42lqXH4Ngf0N3yhzBs2wlvII3nUWcN09IFj62WWNfl4XR8RE3RKGlW0FgrBy3ei6wi0tR5aZ3yRAGE22Ff0h0y2FCQ45RP3B17HkpC2kyLFf4TsO0A4AoL2z3uQTPL4ejGqE34RNkA0ikIG73AchaR0S7zpD3qTrh41p5fLx0LGHBB2PIaxC2VVGRw0KWoJX4I9sLR22ee2R28xIX508zDwL4MPsoI0SrLnF2e38OX1KIcgj2hfrdY0DOJYy42DXVb0Y5Hpj3evNpM3dU8gT3GLJbu3eO8tV4GEDMl3sCiak0TYjVF3hOFJQ13P3qs16aAwv1k2n413Hbcq23681a43XXrU20cG0dp1X9skp2tpEgF1ISEvm1HdmZW2675aL0OH5aP4c0zeH0WpFJP3CVaxC3To1Fv0ZyCK61oR2xM09R8Gc25gh5Q4YT9co06BHrd1W2vXn2rBzuH3UsTZA396oAI23LlWd0cJzqw0J8eBi1nPrQP3LN0932hHkMg3E5F4k0b1MTJ0dM06y4WHezk2VaHOv3yWgUF0cqyIS16UOHK1Xd2mv4fjzKO0MXFSh"
-
-    simple_sample_script = "DSC7h2aG6ae1BX2uH1D6tqS1t5pjg0NibnM2eMJHl2AbaLj15J95Y3NAyL53KNBPI1oRarX02p8cc21J6z74boEtP4g4tXY4VjBfk2LaqZB4Ty2UF0CvQHa4e2SH125IoTe1LoZau2bqzbY3iC9XK3HyTFS1XF9d72Jjhip23onu84c4cZ014ZhuQ4fwaVX2MCq5531qVz33k1MiC0k2w360srPDh1X62Ra3cKNjX1d8RzS0QnuPM3gHMIv0EnzGJ0VYins1EY11J29mH5T2uwhxQ36Iyx5143Cvj07v68s1kF3UPW"
-    # as_dict = get_dict_from_desynced_str(complex_sample_script)
-    as_dict = as_dict_complex
-
     src_file_name = "sample_input.py"
 
     with open(src_file_name, 'r') as src_file:
@@ -206,7 +207,7 @@ def main():
 
 
 def re_name_params(as_dict, param_names):
-    param_names_with_prefix = [VARIABLE_PREFIX+p for p in param_names]
+    param_names_with_prefix = [VARIABLE_PREFIX + p for p in param_names]
     MAX_NUM_PARAMS = 11
     # Rename Variables and parameters
     variables_used = {}
@@ -219,19 +220,15 @@ def re_name_params(as_dict, param_names):
                 if isinstance(val, str):
                     if val.startswith(VARIABLE_PREFIX):
                         if val in param_names_with_prefix:
-                            stmt[key_arg_num] = param_names_with_prefix.index(val) +1
+                            stmt[key_arg_num] = param_names_with_prefix.index(val) + 1
                         elif val in variables_used:
                             stmt[key_arg_num] = variables_used[val]
                         else:
                             # new variable
                             variables_used[val] = next_available_variable
-                            next_available_variable = chr(ord(next_available_variable) + 1)# next char
+                            next_available_variable = chr(ord(next_available_variable) + 1)  # next char
                             stmt[key_arg_num] = variables_used[val]
                             assert next_available_variable != 'Z'  # too much variables
-
-
-
-
 
 
 if __name__ == "__main__":
