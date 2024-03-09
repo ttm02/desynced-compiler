@@ -45,6 +45,33 @@ as_dict_complex = {
     'parameters': [False], 'name': 'Factory Block Manager'}
 
 
+def decode_list_literal(list_literal):
+    assert isinstance(list_literal, ast.List)
+    assert len(list_literal.elts) == 2
+    assert isinstance(list_literal.elts[0], ast.Constant) or isinstance(list_literal.elts[0], ast.Name)
+    assert isinstance(list_literal.elts[1], ast.Constant) or isinstance(list_literal.elts[1], ast.Name)
+
+    if isinstance(list_literal.elts[0], ast.Constant):
+        num = list_literal.elts[0].value
+    else:
+        num = list_literal.elts[0].id
+
+    if isinstance(list_literal.elts[1], ast.Constant):
+        signal = list_literal.elts[1].value
+    else:
+        signal = list_literal.elts[1].id
+
+    assert not (num is None and signal is None)
+
+    result = {}
+    if num is not None:
+        result['num'] = num
+    if signal is not None:
+        result['id'] = signal
+
+    return result
+
+
 def handle_assign(assign_node):
     print(ast.dump(assign_node))
     assert isinstance(assign_node, ast.Assign)
@@ -55,39 +82,49 @@ def handle_assign(assign_node):
     # check kind of operation
     if isinstance(assign_node.value, ast.List):
         # assign constant (set_number statement)
-        assert len(assign_node.value.elts) == 2
-        assert isinstance(assign_node.value.elts[0], ast.Constant) or isinstance(assign_node.value.elts[0], ast.Name)
-        assert isinstance(assign_node.value.elts[1], ast.Constant) or isinstance(assign_node.value.elts[1], ast.Name)
-
-        if isinstance(assign_node.value.elts[0], ast.Constant):
-            num = assign_node.value.elts[0].value
-        else:
-            num = assign_node.value.elts[0].id
-
-        if isinstance(assign_node.value.elts[1], ast.Constant):
-            signal = assign_node.value.elts[1].value
-        else:
-            signal = assign_node.value.elts[1].id
-
-        assert not (num is None and signal is None)
-
         result_stmt = {}
         result_stmt['op'] = 'set_number'
         result_stmt['0'] = False
-
-        input = {}
-        if num is not None:
-            input['num'] = num
-        if signal is not None:
-            input['id'] = signal
-        result_stmt['1'] = input
+        result_stmt['1'] = decode_list_literal(assign_node.value)
         result_stmt['2'] = tgt
         return result_stmt
 
         pass
     elif isinstance(assign_node.value, ast.BinOp):
         # Math
-        pass
+        op = assign_node.value.op
+        print(op)
+        if isinstance(op, ast.Add):
+            op = "add"
+        elif isinstance(op, ast.Sub):
+            op = "sub"
+        elif isinstance(op, ast.Mult):
+            op = "mul"
+        elif isinstance(op, ast.Div):
+            op = "div"
+        else:
+            assert False  # unknown math op
+
+        left = assign_node.value.left
+        if isinstance(left, ast.List):
+            left = decode_list_literal(left)
+        else:
+            assert isinstance(left, ast.Name)
+            left = left.id
+
+        right = assign_node.value.left
+        if isinstance(right, ast.List):
+            right = decode_list_literal(right)
+        else:
+            assert isinstance(right, ast.Name)
+            right = right.id
+            result_stmt = {}
+            result_stmt['op'] = op
+            result_stmt['0'] = left
+            result_stmt['1'] = right
+            result_stmt['2'] = tgt
+            return result_stmt
+
     else:
         assert False
 

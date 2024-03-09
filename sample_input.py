@@ -10,4 +10,6 @@
 def sample_add_1(summand, result):
     A = [1, None]
     result = summand + A
-    A = summand + A  # operation not needed
+    A = summand - A  # operation not needed
+    A = summand * A  # operation not needed
+    A = summand / A  # operation not needed
