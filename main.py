@@ -139,6 +139,32 @@ def handle_assign(assign_node):
     return {}
 
 
+def handle_call(call_node):
+    assert isinstance(call_node, ast.Call)
+    print(ast.dump(call_node))
+
+    assert isinstance(call_node.func, ast.Name)
+    called_func = call_node.func.id[len(VARIABLE_PREFIX):]
+    if called_func == "print":
+        assert len(call_node.args) == 1
+        arg = call_node.args[0]
+        if isinstance(arg, ast.List):
+            arg = decode_list_literal(arg)
+            assert len(arg) == 2
+        else:
+            assert isinstance(arg, ast.Constant)
+            arg = {'num': False, "id": arg.value}
+        # num = signal to show
+        # id = text to display
+        result_stmt = {}
+        result_stmt['op'] = 'notify'
+        result_stmt['0'] = arg['num']
+        result_stmt['txt'] = arg['id']
+        return result_stmt
+    else:
+        assert False and "not Implemented yet"
+
+
 def main():
     src_file_name = "sample_input.py"
 
@@ -196,6 +222,12 @@ def main():
         if isinstance(node, ast.Assign):
             result_stmt = handle_assign(node)
             as_dict[str(i)] = result_stmt
+        elif isinstance(node, ast.Expr):
+            if isinstance(node.value, ast.Call):
+                result_stmt = handle_call(node.value)
+                as_dict[str(i)] = result_stmt
+            else:
+                assert False and "Not yet Implemented"
         else:
             assert False and "Not yet Implemented"
         i += 1
@@ -203,7 +235,7 @@ def main():
     re_name_params(as_dict, param_names)
 
     print(as_dict)
-    print(get_desynced_str_from_dict(as_dict))
+    # print(get_desynced_str_from_dict(as_dict))
 
 
 def re_name_params(as_dict, param_names):
