@@ -96,6 +96,7 @@ def handle_assign(assign_node):
         result_stmt['0'] = False
         result_stmt['1'] = decode_list_literal(assign_node.value)
         result_stmt['2'] = tgt
+        result_stmt['next'] = False
         return result_stmt
 
         pass
@@ -131,6 +132,7 @@ def handle_assign(assign_node):
             result_stmt['0'] = left
             result_stmt['1'] = right
             result_stmt['2'] = tgt
+            result_stmt['next'] = False
             return result_stmt
 
     else:
@@ -141,8 +143,6 @@ def handle_assign(assign_node):
 
 def handle_call(call_node):
     assert isinstance(call_node, ast.Call)
-    print(ast.dump(call_node))
-
     assert isinstance(call_node.func, ast.Name)
     called_func = call_node.func.id[len(VARIABLE_PREFIX):]
     if called_func == "print":
@@ -160,9 +160,49 @@ def handle_call(call_node):
         result_stmt['op'] = 'notify'
         result_stmt['0'] = arg['num']
         result_stmt['txt'] = arg['id']
+        result_stmt['next'] = False
         return result_stmt
     else:
         assert False and "not Implemented yet"
+
+
+"""
+incoming_instr is a list of tuples (instruction,key to replace)
+result_list holds the list of all instructions generated so far
+
+"""
+
+
+def code_gen(body, incoming_instrs, result_list):
+    if len(body) == 0:
+        return
+
+    # add dummy
+    prev_instrs = [({'next': False}, 'next')] + incoming_instrs
+
+    i = 0
+    for node in body:
+        if isinstance(node, ast.Assign):
+            result_stmt = handle_assign(node)
+            add_to_result_list(prev_instrs, result_list, result_stmt)
+            prev_instrs = [(result_stmt, 'next')]
+        elif isinstance(node, ast.Expr):
+            if isinstance(node.value, ast.Call):
+                result_stmt = handle_call(node.value)
+                add_to_result_list(prev_instrs, result_list, result_stmt)
+                prev_instrs = [(result_stmt, 'next')]
+            else:
+                assert False and "Not yet Implemented"
+        else:
+            assert False and "Not yet Implemented"
+        i += 1
+
+
+def add_to_result_list(prev_instrs, result_list, result_stmt):
+    new_elem_pos = len(result_list)
+    result_list.append(result_stmt)
+    for inst, key in prev_instrs:
+        inst[key] = str(new_elem_pos)
 
 
 def main():
@@ -216,21 +256,13 @@ def main():
     for node in ast.walk(tree):
         if isinstance(node, ast.Name):
             node.id = VARIABLE_PREFIX + node.id
+    print(ast.dump(tree))
 
-    i = 0
-    for node in func.body:
-        if isinstance(node, ast.Assign):
-            result_stmt = handle_assign(node)
-            as_dict[str(i)] = result_stmt
-        elif isinstance(node, ast.Expr):
-            if isinstance(node.value, ast.Call):
-                result_stmt = handle_call(node.value)
-                as_dict[str(i)] = result_stmt
-            else:
-                assert False and "Not yet Implemented"
-        else:
-            assert False and "Not yet Implemented"
-        i += 1
+    result_list = []
+    code_gen(func.body, [], result_list)
+
+    for i, stmt in enumerate(result_list):
+        as_dict[str(i)] = stmt
 
     re_name_params(as_dict, param_names)
 
