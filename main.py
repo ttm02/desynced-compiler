@@ -1,4 +1,5 @@
 from convert import get_dict_from_desynced_str, get_desynced_str_from_dict
+import ast
 
 # performance for testing:
 as_dict_simple = {'0': {'0': {'id': 'metalore', 'num': -2147483648}, 'op': 'mine', 'next': False},
@@ -44,6 +45,53 @@ as_dict_complex = {
     'parameters': [False], 'name': 'Factory Block Manager'}
 
 
+def handle_assign(assign_node):
+    print(ast.dump(assign_node))
+    assert isinstance(assign_node, ast.Assign)
+    assert len(assign_node.targets) == 1
+    assert isinstance(assign_node.targets[0], ast.Name)
+    tgt = assign_node.targets[0].id
+
+    # check kind of operation
+    if isinstance(assign_node.value, ast.List):
+        # assign constant (set_number statement)
+        assert len(assign_node.value.elts) == 2
+        assert isinstance(assign_node.value.elts[0], ast.Constant) or isinstance(assign_node.value.elts[0], ast.Name)
+        assert isinstance(assign_node.value.elts[1], ast.Constant) or isinstance(assign_node.value.elts[1], ast.Name)
+
+        if isinstance(assign_node.value.elts[0], ast.Constant):
+            num = assign_node.value.elts[0].value
+        else:
+            num = assign_node.value.elts[0].id
+
+        if isinstance(assign_node.value.elts[1], ast.Constant):
+            signal = assign_node.value.elts[1].value
+        else:
+            signal = assign_node.value.elts[1].id
+
+        assert not (num is None and signal is None)
+
+        result_stmt = {}
+        result_stmt['op'] = 'set_number'
+        result_stmt['0'] = False
+
+        input = {}
+        if num is not None:
+            input['num'] = num
+        if signal is not None:
+            input['id'] = signal
+        result_stmt['1'] = input
+        result_stmt['2'] = tgt
+        return result_stmt
+
+        pass
+    elif isinstance(assign_node.value, ast.BinOp):
+        # Math
+        pass
+    else:
+        assert False
+
+    return {}
 
 
 def main():
@@ -53,7 +101,58 @@ def main():
     # as_dict = get_dict_from_desynced_str(complex_sample_script)
     as_dict = as_dict_complex
 
+    src_file_name = "sample_input.py"
 
+    with open(src_file_name, 'r') as src_file:
+        tree = ast.parse(src_file.read(), filename=src_file_name)
+
+    assert isinstance(tree, ast.Module)
+    funcs = [f for f in tree.body]
+
+    # only one function allowed
+    assert len(funcs) <= 2
+
+    func = funcs[0]
+    docstr = ""
+
+    if len(funcs) == 2:
+        func = funcs[1]
+        docstr = funcs[0]
+
+    assert isinstance(func, ast.FunctionDef)
+
+    if docstr != "":
+        assert isinstance(docstr, ast.Expr)
+        assert isinstance(docstr.value, ast.Constant)
+        docstr = docstr.value.value
+
+    # check args
+    assert func.args.vararg == None
+    assert func.args.kwonlyargs == []
+    assert func.args.kw_defaults == []
+    assert func.args.kwarg == None
+    assert func.args.defaults == []
+
+    # TODO find the correct value
+    MAX_ARG_NUM = 4
+    assert len(func.args.args) <= MAX_ARG_NUM
+
+    param_names = [a.arg for a in func.args.args]
+
+    # the compilation result
+    as_dict = {}
+    as_dict['desc'] = docstr
+    as_dict['name'] = func.name
+    as_dict['id'] = "b_" + func.name
+    as_dict['pnames'] = param_names
+    as_dict['parameters'] = [False for _ in param_names]
+
+    for node in func.body:
+        if isinstance(node, ast.Assign):
+            result_stmt = handle_assign(node)
+            print(result_stmt)
+        else:
+            assert False and "Not yet Implemented"
 
 
 if __name__ == "__main__":
