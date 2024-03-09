@@ -54,31 +54,34 @@ dict_if_sample = {'0': {'0': False, '1': {'num': 1}, '2': 'A', 'op': 'set_number
 VARIABLE_PREFIX = "VAR_"
 
 
-def decode_list_literal(list_literal):
-    assert isinstance(list_literal, ast.List)
-    assert len(list_literal.elts) == 2
-    assert isinstance(list_literal.elts[0], ast.Constant) or isinstance(list_literal.elts[0], ast.Name)
-    assert isinstance(list_literal.elts[1], ast.Constant) or isinstance(list_literal.elts[1], ast.Name)
+def get_value_from_ast_node(astnode):
+    if isinstance(astnode, ast.List):
+        assert len(astnode.elts) == 2
+        assert isinstance(astnode.elts[0], ast.Constant) or isinstance(astnode.elts[0], ast.Name)
+        assert isinstance(astnode.elts[1], ast.Constant) or isinstance(astnode.elts[1], ast.Name)
 
-    if isinstance(list_literal.elts[0], ast.Constant):
-        num = list_literal.elts[0].value
+        if isinstance(astnode.elts[0], ast.Constant):
+            num = astnode.elts[0].value
+        else:
+            num = astnode.elts[0].id
+
+        if isinstance(astnode.elts[1], ast.Constant):
+            signal = astnode.elts[1].value
+        else:
+            signal = astnode.elts[1].id
+
+        assert not (num is None and signal is None)
+
+        result = {}
+        if num is not None:
+            result['num'] = num
+        if signal is not None:
+            result['id'] = signal
+
+        return result
     else:
-        num = list_literal.elts[0].id
-
-    if isinstance(list_literal.elts[1], ast.Constant):
-        signal = list_literal.elts[1].value
-    else:
-        signal = list_literal.elts[1].id
-
-    assert not (num is None and signal is None)
-
-    result = {}
-    if num is not None:
-        result['num'] = num
-    if signal is not None:
-        result['id'] = signal
-
-    return result
+        assert isinstance(astnode, ast.Name)
+        return astnode.id
 
 
 def handle_assign(assign_node):
@@ -94,7 +97,7 @@ def handle_assign(assign_node):
         result_stmt = {}
         result_stmt['op'] = 'set_number'
         result_stmt['0'] = False
-        result_stmt['1'] = decode_list_literal(assign_node.value)
+        result_stmt['1'] = get_value_from_ast_node(assign_node.value)
         result_stmt['2'] = tgt
         result_stmt['next'] = False
         return result_stmt
@@ -114,31 +117,15 @@ def handle_assign(assign_node):
         else:
             assert False  # unknown math op
 
-        left = assign_node.value.left
-        if isinstance(left, ast.List):
-            left = decode_list_literal(left)
-        else:
-            assert isinstance(left, ast.Name)
-            left = left.id
+        left = get_value_from_ast_node(assign_node.value.left)
 
-        right = assign_node.value.right
-        if isinstance(right, ast.List):
-            right = decode_list_literal(right)
-        else:
-            assert isinstance(right, ast.Name)
-            right = right.id
-            result_stmt = {}
-            result_stmt['op'] = op
-            result_stmt['0'] = left
-            result_stmt['1'] = right
-            result_stmt['2'] = tgt
-            result_stmt['next'] = False
-            return result_stmt
+        right = get_value_from_ast_node(assign_node.value.right)
+
+        result_stmt = {'op': op, '0': left, '1': right, '2': tgt, 'next': False}
+        return result_stmt
 
     else:
         assert False
-
-    return {}
 
 
 def handle_call(call_node):
@@ -149,21 +136,70 @@ def handle_call(call_node):
         assert len(call_node.args) == 1
         arg = call_node.args[0]
         if isinstance(arg, ast.List):
-            arg = decode_list_literal(arg)
+            arg = get_value_from_ast_node(arg)
             assert len(arg) == 2
         else:
             assert isinstance(arg, ast.Constant)
             arg = {'num': False, "id": arg.value}
         # num = signal to show
         # id = text to display
-        result_stmt = {}
-        result_stmt['op'] = 'notify'
-        result_stmt['0'] = arg['num']
-        result_stmt['txt'] = arg['id']
-        result_stmt['next'] = False
+        result_stmt = {'op': 'notify', '0': arg['num'], 'txt': arg['id'], 'next': False}
         return result_stmt
     else:
         assert False and "not Implemented yet"
+
+"""return triple Larger? smaller? equal? True: if path will be taken, false: else path"""
+def get_paths_from_predicate(predicate):
+    if isinstance(predicate, ast.LtE):
+        return [False, True, True]
+    else:
+        assert False and "Not implemented yet"
+
+
+def handle_if(if_node, incoming_instrs, result_list):
+    assert isinstance(if_node, ast.If)
+    assert len(incoming_instrs) > 0
+    # TODO currently only compare_number is supported
+    assert isinstance(if_node.test, ast.Compare)
+    assert len(if_node.test.ops) == 1
+    assert len(if_node.test.comparators) == 1
+
+    lhs = if_node.test.left
+    rhs = if_node.test.comparators[0]
+    predicate = if_node.test.ops[0]
+
+    lhs = get_value_from_ast_node(lhs)
+    rhs = get_value_from_ast_node(rhs)
+
+    paths = get_paths_from_predicate(predicate)
+
+    result_stmt = {'0': False,  # larger
+                   '1': False,  # smaller
+                   'next': False,  # equal
+                   '2': lhs, '3': rhs, 'op': 'check_number'}
+    add_to_result_list(incoming_instrs, result_list, result_stmt)
+    prev_instrs = []
+    if paths[0]:
+        prev_instrs.append((result_stmt, '0'))
+    if paths[1]:
+        prev_instrs.append((result_stmt, '1'))
+    if paths[2]:
+        prev_instrs.append((result_stmt, 'next'))
+    # if path
+    if_end = code_gen(if_node.body, prev_instrs, result_list)
+
+    prev_instrs = []
+    if not paths[0]:
+        prev_instrs.append((result_stmt, '0'))
+    if not paths[1]:
+        prev_instrs.append((result_stmt, '1'))
+    if not paths[2]:
+        prev_instrs.append((result_stmt, 'next'))
+
+    # else path
+    else_end = code_gen(if_node.orelse, prev_instrs, result_list)
+
+    return if_end+else_end
 
 
 """
@@ -193,16 +229,19 @@ def code_gen(body, incoming_instrs, result_list):
                 prev_instrs = [(result_stmt, 'next')]
             else:
                 assert False and "Not yet Implemented"
+        elif isinstance(node, ast.If):
+            prev_instrs = handle_if(node, prev_instrs, result_list)
         else:
             assert False and "Not yet Implemented"
-        i += 1
+
+    return prev_instrs
 
 
 def add_to_result_list(prev_instrs, result_list, result_stmt):
     new_elem_pos = len(result_list)
     result_list.append(result_stmt)
     for inst, key in prev_instrs:
-        inst[key] = str(new_elem_pos)
+        inst[key] = new_elem_pos+1
 
 
 def main():
@@ -267,7 +306,7 @@ def main():
     re_name_params(as_dict, param_names)
 
     print(as_dict)
-    # print(get_desynced_str_from_dict(as_dict))
+    print(get_desynced_str_from_dict(as_dict))
 
 
 def re_name_params(as_dict, param_names):

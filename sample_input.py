@@ -7,9 +7,12 @@
 #	D = [1, None]
 
 """Sample Function"""
-def sample_add_1(summand, result):
-    A = [1, None]
-    result = summand + A
-    A = summand - A  # operation not needed
-    A = summand * A  # operation not needed
-    A = summand / A  # operation not needed
+def sample(parameter_name):
+    local_variable = [1, None]
+    local_variable = parameter_name + local_variable
+    if parameter_name <= local_variable:
+        print("LEQ")
+    else:
+        print("GT")
+    print("END")
+
