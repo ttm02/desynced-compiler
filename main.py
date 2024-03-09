@@ -143,8 +143,15 @@ def handle_call(call_node):
             arg = {'num': False, "id": arg.value}
         # num = signal to show
         # id = text to display
-        result_stmt = {'op': 'notify', '0': arg['num'], 'txt': arg['id'], 'next': False}
-        return result_stmt
+        return {'op': 'notify', '0': arg['num'], 'txt': arg['id'], 'next': False}
+    if called_func == "recipe_ingredients":
+        assert len(call_node.args) == 1
+        arg = call_node.args[0]
+        return {'0': get_value_from_ast_node(arg),
+                '1': False,  # iteration var
+                '2': False,  # end
+                'op': 'for_recipe_ingredients',
+                'next': False}
     else:
         assert False and "not Implemented yet"
 
@@ -165,6 +172,25 @@ def get_paths_from_predicate(predicate):
         return [True, False, False]
     else:
         assert False and "Not implemented yet"
+
+
+def handle_for(for_node, incoming_instrs, result_list):
+    assert isinstance(for_node, ast.For)
+    print(ast.dump(for_node))
+    assert len(incoming_instrs) > 0
+    assert isinstance(for_node.target, ast.Name)
+    loop_var = get_value_from_ast_node(for_node.target)
+    assert isinstance(for_node.iter, ast.Call)
+    #TODO also support for i in range(variable or number literal)?
+
+    result_stmt = handle_call(for_node.iter)
+    result_stmt['1'] = loop_var
+    add_to_result_list(incoming_instrs, result_list, result_stmt)
+
+    # body
+    body_endings = code_gen(for_node.body, [(result_stmt, 'next')], result_list)
+
+    return [(result_stmt, '2')]
 
 
 def handle_if(if_node, incoming_instrs, result_list):
@@ -242,7 +268,10 @@ def code_gen(body, incoming_instrs, result_list):
                 assert False and "Not yet Implemented"
         elif isinstance(node, ast.If):
             prev_instrs = handle_if(node, prev_instrs, result_list)
+        elif isinstance(node, ast.For):
+            prev_instrs = handle_for(node, prev_instrs, result_list)
         else:
+            print(ast.dump(node))
             assert False and "Not yet Implemented"
 
     return prev_instrs
@@ -261,39 +290,38 @@ def main():
     with open(src_file_name, 'r') as src_file:
         tree = ast.parse(src_file.read(), filename=src_file_name)
 
+    print(ast.dump(tree))
     assert isinstance(tree, ast.Module)
-    funcs = [f for f in tree.body]
-
-    # only one function allowed
-    assert len(funcs) <= 2
-
-    func = funcs[0]
     docstr = ""
 
-    if len(funcs) == 2:
-        func = funcs[1]
-        docstr = funcs[0]
+    for node in tree.body:
+        if isinstance(node, ast.Expr):
+            assert isinstance(node.value, ast.Constant)
+            docstr = node.value.value
 
-    assert isinstance(func, ast.FunctionDef)
+        elif isinstance(node, ast.ImportFrom) or isinstance(node, ast.Import):
+            pass  # ignore
 
-    if docstr != "":
-        assert isinstance(docstr, ast.Expr)
-        assert isinstance(docstr.value, ast.Constant)
-        docstr = docstr.value.value
+        elif isinstance(node, ast.FunctionDef):
+            print("compile function %s:" % node.name)
+            result_dict = compile_function(node, docstr)
+            print(result_dict)
+            print(get_desynced_str_from_dict(result_dict))
+        else:
+            assert False
 
+
+def compile_function(func, docstr):
     # check args
     assert func.args.vararg == None
     assert func.args.kwonlyargs == []
     assert func.args.kw_defaults == []
     assert func.args.kwarg == None
     assert func.args.defaults == []
-
     # TODO find the correct value
     MAX_ARG_NUM = 4
     assert len(func.args.args) <= MAX_ARG_NUM
-
     param_names = [a.arg for a in func.args.args]
-
     # the compilation result
     as_dict = {}
     as_dict['desc'] = docstr
@@ -301,23 +329,17 @@ def main():
     as_dict['id'] = "b_" + func.name
     as_dict['pnames'] = param_names
     as_dict['parameters'] = [False for _ in param_names]
-
     # rename all variables to avoid conflicts with the variable names used ingame
-    for node in ast.walk(tree):
+    for node in ast.walk(func):
         if isinstance(node, ast.Name):
             node.id = VARIABLE_PREFIX + node.id
-    print(ast.dump(tree))
-
+    # print(ast.dump(func))
     result_list = []
     code_gen(func.body, [], result_list)
-
     for i, stmt in enumerate(result_list):
         as_dict[str(i)] = stmt
-
     re_name_params(as_dict, param_names)
-
-    print(as_dict)
-    print(get_desynced_str_from_dict(as_dict))
+    return as_dict
 
 
 def re_name_params(as_dict, param_names):
