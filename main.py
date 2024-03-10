@@ -196,7 +196,7 @@ def get_paths_from_predicate(predicate):
 
 def handle_for(for_node, incoming_instrs, result_list):
     assert isinstance(for_node, ast.For)
-    #print(ast.dump(for_node))
+    # print(ast.dump(for_node))
     assert len(incoming_instrs) > 0
     assert isinstance(for_node.target, ast.Name)
     loop_var = get_value_from_ast_node(for_node.target)
@@ -215,17 +215,36 @@ def handle_for(for_node, incoming_instrs, result_list):
     return [(result_stmt, '2')]
 
 
-def handle_if(if_node, incoming_instrs, result_list):
-    assert isinstance(if_node, ast.If)
+def handle_while(while_node, incoming_instrs, result_list):
+    assert isinstance(while_node, ast.While)
+    # print(ast.dump(for_node))
     assert len(incoming_instrs) > 0
-    # TODO currently only compare_number is supported
-    assert isinstance(if_node.test, ast.Compare)
-    assert len(if_node.test.ops) == 1
-    assert len(if_node.test.comparators) == 1
 
-    lhs = if_node.test.left
-    rhs = if_node.test.comparators[0]
-    predicate = if_node.test.ops[0]
+    if isinstance(while_node.test, ast.Compare):
+        result_stmt, if_end, else_end = generate_compare_number(while_node.test, while_node.body, None,
+                                                                incoming_instrs, result_list)
+        for instr, idx_to_set in if_end:
+            to_return_to = result_list.index(result_stmt) + 1
+            instr[idx_to_set] = to_return_to
+
+        return else_end
+    # endless loop
+    elif isinstance(while_node.test, ast.Constant) and while_node.test.value == True:
+        to_return_to = len(result_list) + 1  # the nest instruction inserted by codegen
+        loop_ends = code_gen(while_node.body, incoming_instrs, result_list)
+        for instr, idx_to_set in loop_ends:
+            instr[idx_to_set] = to_return_to
+        return []
+
+
+def generate_compare_number(test_node, if_body, else_body, incoming_instrs, result_list):
+    assert isinstance(test_node, ast.Compare)
+    assert len(test_node.ops) == 1
+    assert len(test_node.comparators) == 1
+
+    lhs = test_node.left
+    rhs = test_node.comparators[0]
+    predicate = test_node.ops[0]
 
     lhs = get_value_from_ast_node(lhs)
     rhs = get_value_from_ast_node(rhs)
@@ -245,8 +264,9 @@ def handle_if(if_node, incoming_instrs, result_list):
     if paths[2]:
         prev_instrs.append((result_stmt, 'next'))
     # if path
-    if_end = code_gen(if_node.body, prev_instrs, result_list)
+    if_end = code_gen(if_body, prev_instrs, result_list)
 
+    assert if_body is not None
     prev_instrs = []
     if not paths[0]:
         prev_instrs.append((result_stmt, '0'))
@@ -255,8 +275,22 @@ def handle_if(if_node, incoming_instrs, result_list):
     if not paths[2]:
         prev_instrs.append((result_stmt, 'next'))
 
-    # else path
-    else_end = code_gen(if_node.orelse, prev_instrs, result_list)
+    if else_body is not None:
+        # else path
+        else_end = code_gen(else_body, prev_instrs, result_list)
+    else:
+        else_end = prev_instrs
+
+    return result_stmt, if_end, else_end
+
+
+def handle_if(if_node, incoming_instrs, result_list):
+    assert isinstance(if_node, ast.If)
+    assert len(incoming_instrs) > 0
+    # TODO currently only compare_number is supported
+    assert isinstance(if_node.test, ast.Compare)
+    result_stmt, if_end, else_end = generate_compare_number(if_node.test, if_node.body, if_node.orelse, incoming_instrs,
+                                                            result_list)
 
     return if_end + else_end
 
@@ -293,6 +327,8 @@ def code_gen(body, incoming_instrs, result_list):
             prev_instrs = handle_if(node, prev_instrs, result_list)
         elif isinstance(node, ast.For):
             prev_instrs = handle_for(node, prev_instrs, result_list)
+        elif isinstance(node, ast.While):
+            prev_instrs = handle_while(node, prev_instrs, result_list)
         else:
             print(ast.dump(node))
             assert False and "Not yet Implemented"
@@ -311,7 +347,7 @@ def main():
     src_file_name = "sample_input.py"
 
     global instruction_data
-    instruction_data = pd.read_csv(CSV_FILE_NAME, index_col="name",converters={"arg_idxs": ast.literal_eval})
+    instruction_data = pd.read_csv(CSV_FILE_NAME, index_col="name", converters={"arg_idxs": ast.literal_eval})
 
     with open(src_file_name, 'r') as src_file:
         tree = ast.parse(src_file.read(), filename=src_file_name)
