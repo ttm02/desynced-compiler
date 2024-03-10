@@ -51,11 +51,11 @@ def main():
                 if arg_type == "Input" or (arg_type == "Output" and output_name is not None):
                     arg_name = arg_name.lower().replace(' ', '_')  # into pythonic form
                     args.append(arg_name)
-                    args_to_populate.append(i)
+                    args_to_populate.append(i-1)
                 if arg_type == "Output" and output_name is None:
                     arg_name = arg_name.lower().replace(' ', '_')  # into pythonic form
                     output_name = arg_name
-                    output_pos = i
+                    output_pos = i-1
                 if arg_type == "Exec":
                     cfg_edge_args.append(arg_name)
         result_str += "\n\ndef " + name + "("
