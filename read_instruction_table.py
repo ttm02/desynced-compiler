@@ -76,7 +76,7 @@ def main():
 
     with open("desynced_functions.py", "w") as f:
         f.write(result_str)
-    df_result.to_csv(CSV_FILE_NAME,index_label="name")
+    df_result.to_csv(CSV_FILE_NAME, index_label="name")
 
 
 if __name__ == "__main__":
