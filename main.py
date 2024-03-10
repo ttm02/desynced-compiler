@@ -76,7 +76,7 @@ def get_value_from_ast_node(astnode):
         else:
             signal = astnode.elts[1].id
 
-        assert not (num is None and signal is None)
+        assert not (num is None and signal is None) and "Invalid Literal"
 
         result = {}
         if num is not None:
@@ -86,7 +86,7 @@ def get_value_from_ast_node(astnode):
 
         return result
     else:
-        assert isinstance(astnode, ast.Name)
+        assert isinstance(astnode, ast.Name) and "Invalid Literal"
         return astnode.id
 
 
@@ -94,7 +94,7 @@ def handle_assign(assign_node):
     # print(ast.dump(assign_node))
     assert isinstance(assign_node, ast.Assign)
     assert len(assign_node.targets) == 1
-    assert isinstance(assign_node.targets[0], ast.Name)
+    assert isinstance(assign_node.targets[0], ast.Name) and "assingment to Literal"
     tgt = assign_node.targets[0].id
 
     # check kind of operation
@@ -140,12 +140,10 @@ def handle_assign(assign_node):
         assert False
 
 
-"returns the dict for the instruction, and the output arg to est if used in assignment"
-
-
+#returns the dict for the instruction, and the output arg to est if used in assignment"
 def handle_call(call_node):
     assert isinstance(call_node, ast.Call)
-    assert isinstance(call_node.func, ast.Name)
+    assert isinstance(call_node.func, ast.Name) and "invalid function called"
     called_func = call_node.func.id[len(VARIABLE_PREFIX):]
     if called_func == "print":
         assert len(call_node.args) == 1
@@ -162,7 +160,7 @@ def handle_call(call_node):
 
     if called_func in instruction_data.index:
         this_instruction_data = instruction_data.loc[called_func]
-        assert len(call_node.args) == this_instruction_data['num_args']
+        assert len(call_node.args) == this_instruction_data['num_args'] and "invalid number of args"
         result_stmt = {'op': called_func, 'next': False}
         if this_instruction_data['is_iterator']:
             result_stmt['op'] = "for_" + called_func
@@ -173,7 +171,7 @@ def handle_call(call_node):
         return result_stmt, str(int(this_instruction_data['output_arg_num']))
 
     else:
-        assert False and "not Implemented yet"
+        assert False and "invalid function called"
 
 
 def get_paths_from_predicate(predicate):
@@ -191,7 +189,7 @@ def get_paths_from_predicate(predicate):
     if isinstance(predicate, ast.Gt):
         return [True, False, False]
     else:
-        assert False and "Not implemented yet"
+        assert False and "invalid compare operator"
 
 
 def handle_for(for_node, incoming_instrs, result_list):
@@ -204,7 +202,7 @@ def handle_for(for_node, incoming_instrs, result_list):
     # TODO also support for i in range(variable or number literal)?
 
     result_stmt, arg_to_use_as_iterator = handle_call(for_node.iter)
-    assert arg_to_use_as_iterator is not None
+    assert arg_to_use_as_iterator is not None and "invalid loop variable"
     result_stmt[arg_to_use_as_iterator] = loop_var
     add_to_result_list(incoming_instrs, result_list, result_stmt)
 
@@ -239,8 +237,8 @@ def handle_while(while_node, incoming_instrs, result_list):
 
 def generate_compare_number(test_node, if_body, else_body, incoming_instrs, result_list):
     assert isinstance(test_node, ast.Compare)
-    assert len(test_node.ops) == 1
-    assert len(test_node.comparators) == 1
+    assert len(test_node.ops) == 1 and "invalid comparison"
+    assert len(test_node.comparators) == 1 and "invalid comparison"
 
     lhs = test_node.left
     rhs = test_node.comparators[0]
@@ -266,7 +264,7 @@ def generate_compare_number(test_node, if_body, else_body, incoming_instrs, resu
     # if path
     if_end = code_gen(if_body, prev_instrs, result_list)
 
-    assert if_body is not None
+    assert if_body is not None and "invalid if body"
     prev_instrs = []
     if not paths[0]:
         prev_instrs.append((result_stmt, '0'))
@@ -352,7 +350,7 @@ def main():
     with open(src_file_name, 'r') as src_file:
         tree = ast.parse(src_file.read(), filename=src_file_name)
 
-    print(ast.dump(tree))
+    #print(ast.dump(tree))
     assert isinstance(tree, ast.Module)
     docstr = ""
 
@@ -428,7 +426,8 @@ def re_name_params(as_dict, param_names):
                             variables_used[val] = next_available_variable
                             next_available_variable = chr(ord(next_available_variable) + 1)  # next char
                             stmt[key_arg_num] = variables_used[val]
-                            assert next_available_variable != 'Z'  # too much variables
+                            assert next_available_variable != 'Z'  # too many variables
+                            #TODO we could do a "register assignment" step to reduce number of variables
 
 
 if __name__ == "__main__":
