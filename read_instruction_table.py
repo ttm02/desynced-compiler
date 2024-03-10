@@ -25,7 +25,7 @@ def main():
 
     # containing only the information needed by the compile step
     # name is the index
-    df_result = pd.DataFrame(columns=['num_args', 'output_arg_num', 'is_iterator'])
+    df_result = pd.DataFrame(columns=['num_args', 'arg_idxs','output_arg_num', 'is_iterator'])
     # print(df.columns)
 
     # generate function stubs
@@ -40,6 +40,7 @@ def main():
         output_name = None
         output_pos = pd.NA
         args = []
+        args_to_populate = []
         cfg_edge_args = []
         for i in range(1, 12):
             arg_type = row['argsType' + str(i)]
@@ -50,6 +51,7 @@ def main():
                 if arg_type == "Input" or (arg_type == "Output" and output_name is not None):
                     arg_name = arg_name.lower().replace(' ', '_')  # into pythonic form
                     args.append(arg_name)
+                    args_to_populate.append(i)
                 if arg_type == "Output" and output_name is None:
                     arg_name = arg_name.lower().replace(' ', '_')  # into pythonic form
                     output_name = arg_name
@@ -72,7 +74,14 @@ def main():
             result_str += "'" + output_name + "'\n"
         else:
             result_str += "None\n"
-        df_result.loc[name] = [len(args), output_pos, is_iterator]
+
+        result_df_row = pd.Series()
+        result_df_row['num_args'] = len(args)
+        result_df_row['arg_idxs'] = args_to_populate
+        result_df_row['output_arg_num'] = output_pos
+        result_df_row['is_iterator'] = is_iterator
+
+        df_result.loc[name] = result_df_row
 
     with open("desynced_functions.py", "w") as f:
         f.write(result_str)
