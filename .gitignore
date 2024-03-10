@@ -1,6 +1,9 @@
 # IDE specific files
 .idea
 
+# file generated from the desynced wiki
+desynced_instructions.csv
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
