@@ -1,5 +1,9 @@
-from convert import get_dict_from_desynced_str, get_desynced_str_from_dict
+from convert import get_desynced_str_from_dict
+
+import pandas as pd
 import ast
+
+CSV_FILE_NAME = "desynced_instructions.csv"
 
 # performance for testing:
 as_dict_simple = {'0': {'0': {'id': 'metalore', 'num': -2147483648}, 'op': 'mine', 'next': False},
@@ -52,6 +56,8 @@ dict_if_sample = {'0': {'0': False, '1': {'num': 1}, '2': 'A', 'op': 'set_number
                   'parameters': [False, False], 'pnames': ['summand', 'result'], 'name': 'test_if'}
 
 VARIABLE_PREFIX = "VAR_"
+
+instruction_data = pd.DataFrame()
 
 
 def get_value_from_ast_node(astnode):
@@ -124,8 +130,17 @@ def handle_assign(assign_node):
         result_stmt = {'op': op, '0': left, '1': right, '2': tgt, 'next': False}
         return result_stmt
 
+    elif isinstance(assign_node.value, ast.Call):
+        result_stmt, assign_tgt_idx = handle_call(assign_node.value)
+        result_stmt[str(assign_tgt_idx)] = tgt
+        return result_stmt
+
+
     else:
         assert False
+
+
+"returns the dict for the instruction, and the output arg to est if used in assignment"
 
 
 def handle_call(call_node):
@@ -143,15 +158,20 @@ def handle_call(call_node):
             arg = {'num': False, "id": arg.value}
         # num = signal to show
         # id = text to display
-        return {'op': 'notify', '0': arg['num'], 'txt': arg['id'], 'next': False}
-    if called_func == "recipe_ingredients":
-        assert len(call_node.args) == 1
-        arg = call_node.args[0]
-        return {'0': get_value_from_ast_node(arg),
-                '1': False,  # iteration var
-                '2': False,  # end
-                'op': 'for_recipe_ingredients',
-                'next': False}
+        return {'op': 'notify', '0': arg['num'], 'txt': arg['id'], 'next': False}, None
+
+    if called_func in instruction_data.index:
+        this_instruction_data = instruction_data.loc[called_func]
+        assert len(call_node.args) == this_instruction_data['num_args']
+        result_stmt = {'op': called_func, 'next': False}
+        if this_instruction_data['is_iterator']:
+            result_stmt['op'] = "for_" + called_func
+        for i in range(1, this_instruction_data['num_args'] + 1):
+            result_stmt[str(i)] = False
+        for i, arg in zip(this_instruction_data['arg_idxs'], call_node.args):
+            result_stmt[str(i)] = get_value_from_ast_node(arg)
+        return result_stmt, this_instruction_data['output_arg_num']
+
     else:
         assert False and "not Implemented yet"
 
@@ -181,15 +201,17 @@ def handle_for(for_node, incoming_instrs, result_list):
     assert isinstance(for_node.target, ast.Name)
     loop_var = get_value_from_ast_node(for_node.target)
     assert isinstance(for_node.iter, ast.Call)
-    #TODO also support for i in range(variable or number literal)?
+    # TODO also support for i in range(variable or number literal)?
 
-    result_stmt = handle_call(for_node.iter)
-    result_stmt['1'] = loop_var
+    result_stmt, arg_to_use_as_iterator = handle_call(for_node.iter)
+    assert arg_to_use_as_iterator is not None
+    result_stmt[str(arg_to_use_as_iterator)] = loop_var
     add_to_result_list(incoming_instrs, result_list, result_stmt)
 
     # body
     body_endings = code_gen(for_node.body, [(result_stmt, 'next')], result_list)
 
+    # TODO check if '2' is valid for all for loop intsructions
     return [(result_stmt, '2')]
 
 
@@ -261,10 +283,11 @@ def code_gen(body, incoming_instrs, result_list):
             prev_instrs = [(result_stmt, 'next')]
         elif isinstance(node, ast.Expr):
             if isinstance(node.value, ast.Call):
-                result_stmt = handle_call(node.value)
+                result_stmt, _ = handle_call(node.value)
                 add_to_result_list(prev_instrs, result_list, result_stmt)
                 prev_instrs = [(result_stmt, 'next')]
             else:
+                print(ast.dump(node))
                 assert False and "Not yet Implemented"
         elif isinstance(node, ast.If):
             prev_instrs = handle_if(node, prev_instrs, result_list)
@@ -286,6 +309,9 @@ def add_to_result_list(prev_instrs, result_list, result_stmt):
 
 def main():
     src_file_name = "sample_input.py"
+
+    global instruction_data
+    instruction_data = pd.read_csv(CSV_FILE_NAME, index_col="name")
 
     with open(src_file_name, 'r') as src_file:
         tree = ast.parse(src_file.read(), filename=src_file_name)
