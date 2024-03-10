@@ -3,6 +3,7 @@
 
 # file generated from the desynced wiki
 desynced_instructions.csv
+desynced_functions.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
