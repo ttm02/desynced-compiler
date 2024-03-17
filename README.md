@@ -4,3 +4,5 @@ Compiles a python code into a string to paste into the [game desynced](https://s
 Usage: run main.py, it will print out the resulting string to copy into the game.
 Currently the filename is just hardcoded as `sample_input.py`.
 See `sample_input.py` for an example
+
+It is for education purposes, if you want to programm desynced behaviors: have a look at [https://github.com/ribrdb/desynced-tools](https://github.com/ribrdb/desynced-tools) 
